@@ -1,444 +1,829 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>小型團購 - 單頁版</title>
-<style>
-  :root{
-    --primary:#ff8a5b;
-    --accent:#ffd7a3;
-    --bg:#fff9f3;
-    --muted:#666;
-    --card:#fff;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0;
-    font-family: "Segoe UI", Roboto, "Noto Sans TC", Arial;
-    background:var(--bg);
-    color:#222;
-  }
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>小型團購網站</title>
+    <style>
+        :root {
+            --primary: #ff8a5b;
+            --accent: #ffd7a3;
+            --bg: #fff9f3;
+            --muted: #666;
+            --card: #fff;
+        }
 
-  /* ================= HEADER ================= */
-  header{
-    background:var(--primary);
-    color:#fff;
-    padding:14px;
-    text-align:center;
-    font-weight:700;
-    position:sticky;
-    top:0;
-    z-index:120;
-  }
-  .rules{
-    background:var(--accent);
-    color:#222;
-    font-size:14px;
-    padding:6px;
-    text-align:center;
-  }
+        * {
+            box-sizing: border-box
+        }
 
-  /* ================= TOPBAR ================= */
-  .topbar{
-    display:flex;
-    gap:10px;
-    justify-content:center;
-    align-items:center;
-    background:var(--accent);
-    padding:10px;
-    position:sticky;
-    top:72px; /* header+rules高度 */
-    z-index:115;
-  }
-  .topbar button{
-    background:#fff;border:2px solid var(--primary);color:var(--primary);
-    padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600;position:relative;
-  }
-  .topbar button:hover{background:var(--primary);color:#fff}
-  /* 購物車數量標籤 */
-  .cart-count{
-    position:absolute;
-    top:-6px; right:-6px;
-    background:red;
-    color:#fff;
-    font-size:12px;
-    width:18px; height:18px;
-    border-radius:50%;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    font-weight:700;
-  }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "Noto Sans TC", Arial;
+            background: var(--bg);
+            color: #222;
+        }
 
-  /* ================= CONTROLS (篩選&搜尋) ================= */
-  .controls{
-    display:flex;
-    gap:12px;
-    justify-content:center;
-    align-items:center;
-    padding:12px;
-    background:transparent;
-    position:sticky;
-    top:106px;
-    z-index:110;
-  }
+        /* ================= HEADER ================= */
+        header {
+            background: var(--primary);
+            color: #fff;
+            padding: 14px;
+            text-align: center;
+            font-weight: 700;
+            position: sticky;
+            top: 0;
+            z-index: 120;
+        }
 
-  /* multi-select dropdown */
-  .multi-select{
-    position:relative;
-    width:260px;
-  }
-  .multi-select .label{
-    display:flex;gap:8px;align-items:center;
-    background:#fff;padding:8px;border-radius:8px;border:1px solid #ddd;cursor:pointer;
-  }
-  .multi-select .label span{color:var(--muted)}
-  .multi-select .panel{
-    position:absolute;left:0;right:0;top:calc(100% + 6px);
-    background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px;box-shadow:0 6px 20px rgba(0,0,0,0.08);
-    display:none;max-height:220px;overflow:auto;z-index:130;
-  }
-  .multi-select .panel label{display:flex;gap:8px;align-items:center;padding:6px;border-radius:6px;cursor:pointer}
-  .multi-select .panel label:hover{background:#f8f8f8}
+        .rules {
+            background: var(--accent);
+            color: #222;
+            font-size: 14px;
+            padding: 6px;
+            text-align: center;
+        }
 
-  /* ================= PRODUCT LIST ================= */
-  .container{max-width:1100px;margin:18px auto;padding:0 12px;}
-  .table-header{
-    display:grid;
-    grid-template-columns:100px 1fr 1fr 90px 110px 120px;
-    gap:8px;
-    align-items:center;
-    background:linear-gradient(90deg,#fff7f0,#fff3e8);
-    padding:10px 12px;
-    font-weight:700;
-    border-radius:8px;
-    position:sticky;
-    top:158px;
-    z-index:100;
-    box-shadow:0 3px 6px rgba(0,0,0,0.03);
-  }
-  .table-header div{text-align:center;font-size:13px;color:var(--muted)}
-  .category-block{margin-top:18px;background:var(--card);border-radius:10px;padding:10px;border:1px solid #f2e6db;box-shadow:0 2px 6px rgba(0,0,0,0.03)}
-  .category-title{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-  .category-title h3{margin:0;color:var(--primary);font-size:16px}
-  .category-title span{background:var(--primary);color:#fff;padding:6px 10px;border-radius:20px;font-weight:700;font-size:13px}
-  .product{
-    display:grid;
-    grid-template-columns:100px 1fr 1fr 90px 110px 120px;
-    gap:8px;
-    align-items:center;
-    padding:8px;
-    border-radius:8px;
-  }
-  .product + .product{border-top:1px dashed #f0e6db}
-  .product img{width:76px;height:76px;object-fit:cover;border-radius:8px;cursor:pointer;margin:auto;border:1px solid #eee;}
-  .meta{font-size:14px;color:#222}
-  .muted{font-size:13px;color:var(--muted)}
-  .qty-input{width:72px;padding:6px;border-radius:6px;border:1px solid #ddd;text-align:center}
-  .btn-add{background:var(--primary);color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:700}
-  .btn-add:hover{opacity:.95}
+        /* ================= TOPBAR ================= */
+        .topbar {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            background: var(--accent);
+            padding: 10px;
+            position: sticky;
+            top: 72px;
+            z-index: 115;
+        }
 
-  /* ================= PANELS (cart, wishlist, records, overlay) ================= */
-  .panel{
-    display:none;
-    position:fixed;right:18px;top:100px;width:420px;max-height:78vh;overflow:auto;
-    background:white;border-radius:10px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,0.12);
-    z-index:220;
-  }
-  .panel.open{display:block}
-  .panel h3{margin:4px 0 8px;font-size:18px;color:var(--primary)}
-  .cart-item{display:flex;gap:8px;align-items:center;padding:8px;border-radius:8px;background:#fff8f3;margin-bottom:8px}
-  .cart-item img{width:56px;height:56px;object-fit:cover;border-radius:6px}
-  .cart-item .name{font-weight:600}
-  .cart-item .small{color:var(--muted);font-size:13px}
-  .cart-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
-  .btn{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
-  .btn-primary{background:var(--primary);color:#fff;font-weight:700}
-  .btn-ghost{background:#fff;border:1px solid #ddd}
+        .topbar button {
+            background: #fff;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            position: relative;
+        }
 
-  .overlay{display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.36);z-index:210}
-  .overlay.show{display:block}
+        .topbar button:hover {
+            background: var(--primary);
+            color: #fff
+        }
 
-  .img-preview{display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.8);justify-content:center;align-items:center;z-index:300}
-  .img-preview img{max-width:92%;max-height:92%;border-radius:10px}
+        .cart-count {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: red;
+            color: #fff;
+            font-size: 12px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 700;
+        }
 
-  .wish-popup{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;padding:16px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,0.18);z-index:310;width:340px}
-  .wish-popup h4{margin:0 0 8px}
+        /* ================= CONTROLS ================= */
+        .controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            align-items: center;
+            padding: 12px;
+            position: sticky;
+            top: 106px;
+            z-index: 110;
+        }
 
-  .records-list{max-height:400px;overflow:auto;margin-top:8px}
-  .order-card{background:#fff8f3;padding:8px;border-radius:8px;margin-bottom:8px;border:1px solid #f2e6db}
-  .order-card .meta{font-size:13px;color:var(--muted)}
-  .small-btn{padding:6px 8px;border-radius:8px;border:1px solid #ddd;background:#fff;margin-left:6px;cursor:pointer}
+        .multi-select {
+            position: relative;
+            width: 260px;
+        }
 
-  @media(max-width:900px){
-    .panel{right:8px;left:8px;width:auto}
-    .table-header,.product{grid-template-columns:80px 1fr 1fr 80px 100px 110px}
-  }
-  @media(max-width:560px){
-    .table-header{display:none}
-    .product{grid-template-columns:70px 1fr 1fr 80px 100px;grid-auto-rows:1fr}
-    .product > :nth-child(6){display:none}
-    .panel{left:8px;right:8px;width:auto;top:90px}
-  }
+        .multi-select .label {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: #fff;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+        }
 
-</style>
+        .multi-select .panel {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: calc(100% + 6px);
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            display: none;
+            max-height: 220px;
+            overflow: auto;
+            z-index: 130;
+        }
+
+        .multi-select .panel label {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .multi-select .panel label:hover {
+            background: #f8f8f8;
+        }
+
+        /* ================= PRODUCT LIST ================= */
+        .container {
+            max-width: 1100px;
+            margin: 18px auto;
+            padding: 0 12px;
+        }
+
+        .table-header {
+            display: grid;
+            grid-template-columns: 100px 1fr 1fr 90px 110px 120px;
+            gap: 8px;
+            align-items: center;
+            background: linear-gradient(90deg, #fff7f0, #fff3e8);
+            padding: 10px 12px;
+            font-weight: 700;
+            border-radius: 8px;
+            position: sticky;
+            top: 158px;
+            z-index: 100;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.03);
+        }
+
+        .table-header div {
+            text-align: center;
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        .category-block {
+            margin-top: 18px;
+            background: var(--card);
+            border-radius: 10px;
+            padding: 10px;
+            border: 1px solid #f2e6db;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03)
+        }
+
+        .product {
+            display: grid;
+            grid-template-columns: 100px 1fr 1fr 90px 110px 120px;
+            gap: 8px;
+            align-items: center;
+            padding: 8px;
+            border-radius: 8px;
+        }
+
+        .product+.product {
+            border-top: 1px dashed #f0e6db
+        }
+
+        .product img {
+            width: 76px;
+            height: 76px;
+            object-fit: cover;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: auto;
+            border: 1px solid #eee;
+        }
+
+        .qty-input {
+            width: 72px;
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            text-align: center
+        }
+
+        .btn-add {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700
+        }
+
+        .btn-add:hover {
+            opacity: .95
+        }
+
+        /* ================= PANELS ================= */
+        .panel {
+            display: none;
+            position: fixed;
+            right: 18px;
+            top: 100px;
+            width: 420px;
+            max-height: 78vh;
+            overflow: auto;
+            background: white;
+            border-radius: 10px;
+            padding: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+            z-index: 220;
+        }
+
+        .panel.open {
+            display: block
+        }
+
+        .panel h3 {
+            margin: 4px 0 8px;
+            font-size: 18px;
+            color: var(--primary)
+        }
+
+        .cart-item {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 8px;
+            border-radius: 8px;
+            background: #fff8f3;
+            margin-bottom: 8px
+        }
+
+        .cart-item img {
+            width: 56px;
+            height: 56px;
+            object-fit: cover;
+            border-radius: 6px
+        }
+
+        .cart-item .name {
+            font-weight: 600
+        }
+
+        .cart-item .small {
+            color: var(--muted);
+            font-size: 13px
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.36);
+            z-index: 210
+        }
+
+        .overlay.show {
+            display: block
+        }
+
+        .img-preview {
+            display: none;
+            position: fixed;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 300
+        }
+
+        .img-preview img {
+            max-width: 92%;
+            max-height: 92%;
+            border-radius: 10px
+        }
+
+        .wish-popup {
+            display: none;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 16px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+            z-index: 310;
+            width: 340px
+        }
+
+        .wish-popup h4 {
+            margin: 0 0 8px
+        }
+
+        .records-list {
+            max-height: 400px;
+            overflow: auto;
+            margin-top: 8px
+        }
+
+        .order-card {
+            background: #fff8f3;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border: 1px solid #f2e6db
+        }
+
+        @media(max-width:900px) {
+            .panel {
+                right: 8px;
+                left: 8px;
+                width: auto
+            }
+        }
+    </style>
 </head>
+
 <body>
 
-<!-- ================= HEADER & RULES ================= -->
-<header>小型團購網站</header>
-<div class="rules">
-  團購規則：滿 3 件免運，付款方式：轉帳或超商付款，出貨日每週三與週六
+    <!-- HEADER & RULES -->
+    <header>小型團購網站</header>
+    <div class="rules" id="rules">載入中...</div>
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+        <button id="openWishBtn">🌠 許願清單</button>
+        <button id="openCartBtn">🛒 購物車 <span id="cartCount" class="cart-count" style="display:none">0</span></button>
+        <button id="openRecordsBtn">🧾 購物車紀錄</button>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls container">
+        <div class="multi-select" id="categoryMulti">
+            <div class="label" id="categoryLabel">分類篩選 · 多選 <span id="selectedCount" style="margin-left:auto;color:var(--muted);font-weight:600">全部</span></div>
+            <div class="panel" id="categoryPanel"></div>
+        </div>
+        <input type="text" id="searchBox" placeholder="搜尋商品名稱..." style="padding:8px;border-radius:8px;border:1px solid #ddd;width:320px">
+    </div>
+
+    <!-- PRODUCT AREA -->
+    <div class="container">
+        <div class="table-header">
+            <div>圖片</div>
+            <div>名稱</div>
+            <div>品牌</div>
+            <div>價格</div>
+            <div>數量</div>
+            <div>操作</div>
+        </div>
+        <div id="productArea"></div>
+    </div>
+
+    <!-- CART PANEL -->
+<div class="panel" id="cartPanel">
+  <form id="orderForm" target="hidden_iframe">
+      <h3>購物車</h3>
+      <div id="cartItemsContainer"></div>
+
+      <input type="hidden" name="action" value="submitOrder">
+      <input type="hidden" name="cart" id="cartInput">
+
+      <input name="checkoutName" id="checkoutName" placeholder="姓名" style="width:100%;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #ddd">
+      <input name="checkoutPhone" id="checkoutPhone" placeholder="電話" style="width:100%;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #ddd">
+      <input name="checkoutEmail" id="checkoutEmail" placeholder="Email" style="width:100%;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #ddd">
+
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button type="button" class="btn-ghost" id="closeCart">關閉</button>
+          <button type="submit" class="btn-primary">送出訂單</button>
+      </div>
+  </form>
 </div>
 
-<!-- ================= TOPBAR ================= -->
-<div class="topbar">
-  <button id="openWishBtn">🌠 許願清單</button>
-  <button id="openCartBtn">🛒 購物車 <span id="cartCount" class="cart-count" style="display:none">0</span></button>
-  <button id="openRecordsBtn">🧾 購物車紀錄</button>
-</div>
+<iframe name="hidden_iframe" style="display:none;"></iframe>
 
-<!-- ================= CONTROLS ================= -->
-<div class="controls container">
-  <div class="multi-select" id="categoryMulti">
-    <div class="label" id="categoryLabel">分類篩選 · 多選 <span id="selectedCount" style="margin-left:auto;color:var(--muted);font-weight:600">全部</span></div>
-    <div class="panel" id="categoryPanel"></div>
-  </div>
-  <input type="text" id="searchBox" placeholder="搜尋商品名稱..." style="padding:8px;border-radius:8px;border:1px solid #ddd;width:320px">
-</div>
+    <!-- RECORDS PANEL -->
+    <div class="panel" id="recordsPanel">
+        <h3>購物紀錄</h3>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input id="recordsEmail" placeholder="輸入 Email 查詢" style="flex:1;padding:8px;border-radius:6px;border:1px solid #ddd">
+            <button class="btn-primary" id="lookupRecords">查詢</button>
+        </div>
+        <div class="records-list" id="recordsList"></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+            <button class="btn-ghost" id="closeRecords">關閉</button>
+        </div>
+    </div>
 
-<!-- ================= PRODUCT AREA ================= -->
-<div class="container">
-  <div class="table-header">
-    <div>圖片</div>
-    <div>名稱</div>
-    <div>品牌</div>
-    <div>價格</div>
-    <div>數量</div>
-    <div style="text-align:center">操作</div>
-  </div>
-  <div id="productArea"></div>
-</div>
+    <!-- OVERLAY -->
+    <div class="overlay" id="overlay"></div>
 
-<!-- ================= CART PANEL ================= -->
-<div class="panel" id="cartPanel" aria-hidden="true">
-  <h3>購物車</h3>
-  <div id="cartItemsContainer"></div>
-  <div style="margin-top:8px">
-    <label>姓名</label>
-    <input id="checkoutName" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;margin-top:6px">
-    <label>電話</label>
-    <input id="checkoutPhone" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;margin-top:6px">
-    <label>Email</label>
-    <input id="checkoutEmail" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;margin-top:6px">
-  </div>
-  <div class="cart-actions">
-    <button class="btn btn-ghost" id="closeCart">關閉</button>
-    <button class="btn btn-primary" id="submitOrderBtn">送出訂單</button>
-  </div>
-</div>
+    <!-- WISH POPUP -->
+    <div class="wish-popup" id="wishPopup">
+        <h4>許願清單 ✨</h4>
+        <input id="wishImg" placeholder="圖片連結 (https://...)">
+        <input id="wishProduct" placeholder="產品名稱">
+        <input id="wishPerson" placeholder="許願人姓名">
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+            <button class="btn-ghost" id="closeWish">關閉</button>
+            <button class="btn-primary" id="submitWishBtn">提交</button>
+        </div>
+    </div>
 
-<!-- ================= RECORDS PANEL ================= -->
-<div class="panel" id="recordsPanel" aria-hidden="true" style="display:none;right:auto;left:50%;transform:translateX(20%);width:520px">
-  <h3>購物車紀錄</h3>
-  <div style="display:flex;gap:8px;margin-bottom:8px">
-    <input id="recordsEmail" placeholder="輸入 Email 查詢" style="flex:1;padding:8px;border-radius:6px;border:1px solid #ddd">
-    <button class="btn btn-primary" id="lookupRecords">查詢</button>
-  </div>
-  <div class="records-list" id="recordsList"></div>
-  <div style="display:flex;justify-content:flex-end;margin-top:8px">
-    <button class="btn btn-ghost" id="closeRecords">關閉</button>
-  </div>
-</div>
+    <!-- IMAGE PREVIEW -->
+    <div class="img-preview" id="imgPreview"><img src="" alt=""></div>
 
-<!-- ================= OVERLAY ================= -->
-<div class="overlay" id="overlay"></div>
+    <script>
+        /* ===================== CONFIG ======================= */
+        // ✅ 設定區：放固定不變的設定值
+        // GAS_URL：指向 Google Apps Script Web App 的網址
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzue0Tf2llwjtmzaxN1peGdZ5i3mPKEQ_iD9W-zu6VXwfk1M_7flUGn5smFvUYtlbp8/exec";
 
-<!-- ================= WISHLIST POPUP ================= -->
-<div class="wish-popup" id="wishPopup">
-  <h4>許願清單 ✨</h4>
-  <input id="wishImg" placeholder="圖片連結 (https://...)">
-  <input id="wishProduct" placeholder="產品名稱">
-  <input id="wishPerson" placeholder="許願人姓名">
-  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
-    <button class="btn-ghost" id="closeWish">關閉</button>
-    <button class="btn-primary" id="submitWishBtn">提交</button>
-  </div>
-</div>
 
-<!-- ================= IMAGE PREVIEW ================= -->
-<div class="img-preview" id="imgPreview" onclick="hideImagePreview()"><img src="" alt="preview"></div>
+        /* ===================== GLOBAL STATE ======================= */
+        // ✅ 全域狀態，用來在多個函式之間共用資料
+        let products = []; // 存放從 GAS 取得的商品清單
+        let cart = []; // 使用者目前加入購物車的商品（本地記憶體內的暫存資料）
 
-<!-- ===================== SCRIPT ===================== -->
-<script>
-/* ===================== GAS API URL ======================= */
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzue0Tf2llwjtmzaxN1peGdZ5i3mPKEQ_iD9W-zu6VXwfk1M_7flUGn5smFvUYtlbp8/exec"; // 替換成你的部署ID
+        /* ===================== INIT ======================= */
+        // ✅ 初始化邏輯：等頁面載入完成後才執行
+        window.addEventListener("DOMContentLoaded", () => {
+            console.log("[INIT] 頁面載入完成，開始初始化...");
+            // 1️⃣ 讀取團購規則（例如：滿幾件免運、出貨日、付款方式等）
+            loadRules();
 
-/* ===================== DATA & STORAGE ======================= */
-let PRODUCTS = []; // 將從 GAS 讀取商品
-const STORAGE_KEYS = { CART:'tg_cart_v1', WISHLIST:'tg_wishlist_v1', ORDERS:'tg_orders_v1' };
-function readStorage(key,fallback){ try{ const v=localStorage.getItem(key); return v?JSON.parse(v):fallback; }catch(e){return fallback;} }
-function writeStorage(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+            // 2️⃣ 讀取商品清單（從試算表或 GAS 傳回）
+            loadProducts();
 
-/* ===================== STATE ======================= */
-let cart = readStorage(STORAGE_KEYS.CART, []); // [{code, qty}]
-let wishlist = readStorage(STORAGE_KEYS.WISHLIST, []);
+            // 3️⃣ 綁定按鈕、輸入框、購物車按鈕等互動事件
+            bindEvents();
+        });
 
-/* ===================== LOAD PRODUCTS FROM GAS ======================= */
-async function loadProducts(){
-  try{
-    const res = await fetch(GAS_URL+'?action=getProducts');
-    const data = await res.json();
-    PRODUCTS = data;
-    buildCategoryPanel(); updateCategoryLabel(); renderProducts();
-  }catch(err){ console.error('讀取商品失敗', err); }
-}
-loadProducts();
+        /* ===================== FETCH HELPERS ======================= */
+        // ✅ 通用 API 呼叫函式
+        // 所有前端與 GAS 的資料交換都經由這裡進行。
+        // payload 是一個物件，至少要有 action 屬性（例如 {action: "getProducts"}）
+        async function callAPI(payload) {
+            console.log(`[API] 呼叫 GAS (${GAS_URL})，傳送資料:`, payload);
+            console.log(`[API] 呼叫 GAS (${GAS_URL})，傳送資料:`, payload);
 
-/* ===================== CATEGORY PANEL ===================== */
-let selectedCategories = new Set();
-const categoryPanel = document.getElementById('categoryPanel');
-const selectedCountSpan = document.getElementById('selectedCount');
+            try {
+                const res = await fetch(GAS_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
 
-function uniqueCategories(){ return [...new Set(PRODUCTS.map(p=>p.category))]; }
+                console.log("[API] 收到回應狀態碼:", res.status);
 
-function buildCategoryPanel(){
-  categoryPanel.innerHTML='';
-  uniqueCategories().forEach(cat=>{
-    const id='chk_'+cat;
-    const label=document.createElement('label');
-    label.innerHTML=`<input type="checkbox" value="${cat}" id="${id}" ${selectedCategories.has(cat)?'checked':''}> <span>${cat}</span>`;
-    categoryPanel.appendChild(label);
-    label.querySelector('input').addEventListener('change',(e)=>{
-      if(e.target.checked) selectedCategories.add(cat); else selectedCategories.delete(cat);
-      updateCategoryLabel(); renderProducts();
-    });
-  });
-  const hr=document.createElement('div'); hr.style.margin='6px 0';
-  categoryPanel.appendChild(hr);
-  const btnAll=document.createElement('button'); btnAll.textContent='全部'; btnAll.style.marginRight='8px';
-  btnAll.onclick=()=>{ selectedCategories.clear(); updateCategoryLabel(); renderProducts(); hideCategoryPanel(); };
-  const btnClear=document.createElement('button'); btnClear.textContent='清除';
-  btnClear.onclick=()=>{ selectedCategories.clear(); updateCategoryLabel(); renderProducts(); };
-  categoryPanel.appendChild(btnAll); categoryPanel.appendChild(btnClear);
-}
-function updateCategoryLabel(){ selectedCountSpan.textContent = selectedCategories.size===0?'全部':Array.from(selectedCategories).join('、'); }
-document.querySelector('.multi-select .label').addEventListener('click',()=>{ categoryPanel.style.display=(categoryPanel.style.display==='block'?'none':'block'); });
-document.addEventListener('click',(e)=>{ if(!document.getElementById('categoryMulti').contains(e.target)) categoryPanel.style.display='none'; });
-function hideCategoryPanel(){ categoryPanel.style.display='none'; }
+                if (!res.ok) {
+                    console.error("[API] 回應錯誤:", res.status, res.statusText);
+                    throw new Error(`API 回應錯誤: ${res.status}`);
+                }
 
-/* ===================== SEARCH ===================== */
-let searchQuery = '';
-document.getElementById('searchBox').addEventListener('input',(e)=>{ searchQuery=e.target.value.trim().toLowerCase(); renderProducts(); });
+                const json = await res.json();
+                console.log("[API] 回傳 JSON:", json);
+                return json;
 
-/* ===================== PRODUCT RENDER ===================== */
-const productArea = document.getElementById('productArea');
-function renderProducts(){
-  productArea.innerHTML='';
-  uniqueCategories().forEach(cat=>{
-    if(selectedCategories.size>0 && !selectedCategories.has(cat)) return;
-    const block=document.createElement('div'); block.className='category-block';
-    const title=document.createElement('div'); title.className='category-title';
-    title.innerHTML=`<h3>${cat}</h3><span>${PRODUCTS.filter(p=>p.category===cat).length}</span>`;
-    block.appendChild(title);
-    PRODUCTS.filter(p=>p.category===cat && (p.name.toLowerCase().includes(searchQuery) || !searchQuery)).forEach(p=>{
-      const row=document.createElement('div'); row.className='product';
-      row.innerHTML=`
-        <div><img src="${p.img}" alt="${p.name}" loading="lazy" onclick="showImage('${p.img}')"></div>
-        <div class="meta">${p.name}</div>
-        <div class="muted">${p.brand}</div>
-        <div class="meta">$${p.price}</div>
-        <div><input type="number" min="1" value="1" id="qty_${p.code}" class="qty-input"></div>
-        <div style="text-align:center"><button class="btn-add" data-code="${p.code}">加入購物車</button></div>
-      `;
-      block.appendChild(row);
-    });
-    productArea.appendChild(block);
-  });
+            } catch (err) {
+                console.error("[API] 呼叫失敗:", err);
+                throw err; // 再往上丟出錯誤讓呼叫者處理
+            }
+        }
 
-  document.querySelectorAll('.btn-add').forEach(btn=>{
-    btn.addEventListener('click',(e)=>{
-      const code=e.currentTarget.dataset.code;
-      const qty=parseInt(document.getElementById('qty_'+code).value)||1;
-      addToCart(code,qty); showCartPanel();
-    });
-  });
-}
+        /* ===================== LOAD RULES ======================= */
+        // ✅ 從 GAS 取得團購規則文字，並顯示在頁面上
+        async function loadRules() {
+            try {
+                console.log("[RULES] 載入中...");
+                const res = await fetch(`${GAS_URL}?action=getRules`);
+                const data = await res.json();
+                console.log("[RULES] 收到資料:", data);
+                document.getElementById("rules").textContent = data.rules || "無資料";
+            } catch (err) {
+                console.error("[RULES] 載入失敗:", err);
+                document.getElementById("rules").textContent = "讀取失敗";
+            }
+        }
 
-/* ===================== CART ===================== */
-const cartCountElem = document.getElementById('cartCount');
-const cartPanel = document.getElementById('cartPanel');
-function addToCart(code,qty=1){
-  const idx=cart.findIndex(c=>c.code===code);
-  if(idx>=0) cart[idx].qty+=qty; else cart.push({code,qty});
-  writeStorage(STORAGE_KEYS.CART,cart);
-  renderCartItems(); updateCartCount();
-}
-function renderCartItems(){
-  const container=document.getElementById('cartItemsContainer');
-  container.innerHTML='';
-  if(cart.length===0){ container.innerHTML='<div style="color:var(--muted);padding:6px">購物車空空如也</div>'; return; }
-  cart.forEach((ci,i)=>{
-    const p = PRODUCTS.find(x=>x.code===ci.code);
-    const div=document.createElement('div'); div.className='cart-item';
-    div.innerHTML=`
-      <div>${p.name} x ${ci.qty}</div>
-      <div>$${p.price*ci.qty}</div>
-      <div><button data-i="${i}">刪除</button></div>
+        /* ===================== LOAD PRODUCTS ======================= */
+        // ✅ 從 GAS 取得商品資料（例如：名稱、價格、圖片、庫存等）
+        async function loadProducts() {
+            try {
+                console.log("[PRODUCTS] 載入中...");
+                const res = await fetch(`${GAS_URL}?action=getProducts`);
+                const data = await res.json();
+                console.log("[PRODUCTS] 收到資料:", data);
+
+                products = Array.isArray(data) ? data : (data.products || []);
+                console.log("[PRODUCTS] 實際渲染筆數:", products.length);
+                renderProducts(products);
+            } catch (err) {
+                console.error("[PRODUCTS] 載入失敗:", err);
+            }
+        }
+
+
+        /* ===================== renderProducts ======================= */
+        function renderProducts(items) {
+            console.log("[RENDER] 開始渲染商品，共", items.length, "筆");
+
+            const container = document.getElementById("productList");
+            if (!container) {
+                console.error("[RENDER] 找不到 #productList 元素！");
+                return;
+            }
+
+            container.innerHTML = "";
+
+            if (!items.length) {
+                container.innerHTML = "<p>目前沒有商品資料。</p>";
+                return;
+            }
+
+            items.forEach((p, index) => {
+                const card = document.createElement("div");
+                card.className = "product-card";
+                card.innerHTML = `
+            <img src="${p.img || ""}" alt="${p.name || "商品"}">
+            <h3>${p.name || "未命名商品"}</h3>
+            <p>${p.price ? p.price + " 元" : "未設定價格"}</p>
+            <p>${p.brand || ""} | ${p.category || ""}</p>
+            <button data-index="${index}">加入購物車</button>
+        `;
+                container.appendChild(card);
+            });
+
+            console.log("[RENDER] 商品渲染完成");
+        }
+
+
+
+        /* ===================== bindEvents ======================= */
+        // 綁定頁面按鈕事件，例如購物車操作 監聽每個商品「加入購物車」按鈕
+        function bindEvents() {
+            console.log("[EVENT] 開始綁定事件...");
+
+            const productList = document.getElementById("productList");
+            if (!productList) {
+                console.warn("[EVENT] 找不到 #productList 元素，無法綁定事件");
+                return;
+            }
+
+            // 事件委派：監聽整個商品列表的按鈕點擊
+            productList.addEventListener("click", e => {
+                // ⚠️ 注意要和 renderProducts 的 data-* 屬性一致
+                if (e.target.matches("button[data-index]")) {
+                    const index = parseInt(e.target.dataset.index, 10);
+                    console.log(`[CART] 使用者點擊加入購物車，商品索引=${index}`);
+                    addToCart(index);
+                }
+            });
+
+            console.log("[EVENT] 事件綁定完成");
+        }
+
+        /* ===================== ADD TO CART ======================= */
+        // 將商品加入購物車
+        function addToCart(index) {
+            const product = products[index];
+            if (!product) {
+                console.warn("[CART] 找不到商品，索引:", index);
+                return;
+            }
+
+            cart.push(product); // 加入購物車陣列
+            console.log("[CART] 已加入購物車:", product);
+            console.log("[CART] 購物車目前共有", cart.length, "件商品");
+        }
+
+
+        /* ===================== RENDER PRODUCTS ======================= */
+        function renderProducts(list) {
+            const area = document.getElementById("productArea");
+            area.innerHTML = "";
+            list.forEach(p => {
+                const el = document.createElement("div");
+                el.className = "product";
+                el.innerHTML = `
+      <img src="${p.img}" onclick="showImagePreview('${p.img}')">
+      <div>${p.name}</div>
+      <div>${p.brand||'-'}</div>
+      <div>$${p.price}</div>
+      <div><input type="number" class="qty-input" id="qty_${p.code}" min="1" value="1"></div>
+      <div style="text-align:center"><button class="btn-add" onclick="addToCart('${p.code}')">加入</button></div>
     `;
-    div.querySelector('button').addEventListener('click',()=>{ cart.splice(i,1); writeStorage(STORAGE_KEYS.CART,cart); renderCartItems(); updateCartCount(); });
-    container.appendChild(div);
-  });
-}
-function updateCartCount(){ cartCountElem.textContent=cart.reduce((a,c)=>a+c.qty,0); }
-function showCartPanel(){ cartPanel.style.display='block'; }
-function closeCartPanel(){ cartPanel.style.display='none'; }
+                area.appendChild(el);
+            });
+        }
+/* ===================== CART ======================= */
 
-/* ===================== SUBMIT ORDER ===================== */
-async function submitOrder(){
-  const name = document.getElementById('checkoutName').value.trim();
-  const phone = document.getElementById('checkoutPhone').value.trim();
-  const email = document.getElementById('checkoutEmail').value.trim();
-  if(!name || !phone || !email){ alert('請完整填寫資料'); return; }
-  if(cart.length===0){ alert('購物車沒有商品'); return; }
-
-  const order = {name,phone,email,cart:cart.map(ci=>{
-    const p=PRODUCTS.find(x=>x.code===ci.code); return {code:p.code,name:p.name,brand:p.brand,price:p.price,qty:ci.qty,img:p.img};
-  })};
-
-  try{
-    const res = await fetch(GAS_URL,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'submitOrder',order}) });
-    const data = await res.json();
-    if(data.status==='ok'){
-      alert('訂單已送出 ✅'); cart=[]; writeStorage(STORAGE_KEYS.CART,cart); renderCartItems(); updateCartCount();
-      document.getElementById('checkoutName').value=''; document.getElementById('checkoutPhone').value=''; document.getElementById('checkoutEmail').value='';
-      closeCartPanel();
-    }else alert('送出失敗');
-  }catch(err){ console.error(err); alert('送出失敗'); }
+/* 加入商品到購物車 */
+function addToCart(code) {
+    const p = products.find(x => x.code === code);
+    if (!p) return;
+    const qty = parseInt(document.getElementById(`qty_${code}`)?.value) || 1;
+    const existing = cart.find(c => c.code === code);
+    if (existing) existing.qty += qty;
+    else cart.push({ ...p, qty });
+    console.log("[CART] 加入購物車:", code, "數量:", qty);
+    updateCartCount();
+    renderCart(); // 每次加入後重新渲染
 }
 
-/* ===================== WISHLIST ===================== */
-const wishPopup = document.getElementById('wishPopup');
-document.getElementById('submitWishBtn').addEventListener('click', async ()=>{
-  const img = document.getElementById('wishImg').value.trim();
-  const name = document.getElementById('wishProduct').value.trim();
-  const person = document.getElementById('wishPerson').value.trim();
-  if(!name || !person){ alert('請填寫產品名稱與許願人'); return; }
+/* 更新購物車數量顯示 */
+function updateCartCount() {
+    const count = cart.reduce((s, i) => s + i.qty, 0);
+    const el = document.getElementById("cartCount");
+    if (count > 0) {
+        el.style.display = "flex";
+        el.textContent = count;
+    } else el.style.display = "none";
+}
 
-  const wish = {img,name,person};
-  try{
-    const res = await fetch(GAS_URL,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'addWish',wish}) });
-    const data = await res.json();
-    if(data.status==='ok'){ alert('已加入許願清單 ✅'); wishPopup.style.display='none'; document.getElementById('overlay').style.display='none'; }
-    else alert('送出失敗');
-  }catch(err){ console.error(err); alert('送出失敗'); }
-});
+/* 渲染購物車列表 */
+function renderCart() {
+    const box = document.getElementById("cartItemsContainer");
+    console.log("[CART] 渲染購物車，商品數量:", cart.length);
 
-/* ===================== IMAGE PREVIEW ===================== */
-function showImage(src){ const imgPop=document.getElementById('imgPreview'); imgPop.querySelector('img').src=src; imgPop.style.display='block'; }
-function closeImgPreview(){ document.getElementById('imgPreview').style.display='none'; }
-</script>
+    if (!box) {
+        console.error("[CART] 找不到 #cartItemsContainer");
+        return;
+    }
 
+    if (cart.length > 0) {
+        box.innerHTML = cart.map(i => `
+        <div class="cart-item" data-code="${i.code}" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <img src="${i.img}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;margin-right:8px;">
+            <div style="flex:1;">
+                <div class="name" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>${i.name}</span>
+                    <button class="btn-remove" style="background:none;border:none;color:red;cursor:pointer;">刪除</button>
+                </div>
+                <div class="small" style="display:flex;align-items:center;gap:8px;">
+                    <span>數量：</span>
+                    <input type="number" class="cart-qty" value="${i.qty}" min="1" style="width:50px;">
+                    <span>· $${i.price * i.qty}</span>
+                </div>
+            </div>
+        </div>
+        `).join("");
+        console.log("[CART] 商品渲染完成");
+    } else {
+        box.innerHTML = "<p>購物車是空的</p>";
+        console.log("[CART] 購物車是空的");
+    }
+
+    // 🔹 綁定刪除事件
+    const removeButtons = box.querySelectorAll(".btn-remove");
+    removeButtons.forEach(btn => {
+        btn.onclick = () => {
+            const code = btn.closest(".cart-item").dataset.code;
+            cart = cart.filter(c => c.code !== code);
+            console.log("[CART] 已刪除商品:", code);
+            updateCartCount();
+            renderCart(); // 刪除後重新渲染
+        };
+    });
+
+    // 🔹 綁定修改數量事件
+    const qtyInputs = box.querySelectorAll(".cart-qty");
+    qtyInputs.forEach(input => {
+        input.onchange = () => {
+            const code = input.closest(".cart-item").dataset.code;
+            const item = cart.find(c => c.code === code);
+            if (!item) return;
+            const newQty = parseInt(input.value) || 1;
+            item.qty = newQty;
+            console.log("[CART] 修改數量:", code, "新數量:", newQty);
+            updateCartCount();
+            renderCart(); // 更新後重新渲染
+        };
+    });
+}
+
+/* ===================== ORDER SUBMIT ======================= */
+async function submitOrder() {
+    const name = document.getElementById("checkoutName").value.trim();
+    const phone = document.getElementById("checkoutPhone").value.trim();
+    const email = document.getElementById("checkoutEmail").value.trim();
+    if (!name || !phone || !email || cart.length === 0) {
+        alert("請完整填寫資料與選擇商品");
+        return;
+    }
+
+const payload = {
+    action: "submitOrder",
+    order: { name, phone, email, cart }  // 用 order 包起來
+};
+    const res = await callAPI(payload);
+    alert(res.message || "訂單已送出");
+
+    // 清空購物車
+    cart = [];
+    updateCartCount();
+    renderCart();
+    document.getElementById("cartPanel").classList.remove("open");
+}
+
+        /* ===================== WISH ======================= */
+        async function submitWish() {
+            const img = document.getElementById("wishImg").value.trim();
+            const product = document.getElementById("wishProduct").value.trim();
+            const person = document.getElementById("wishPerson").value.trim();
+            if (!product || !person) {
+                alert("請填寫產品名稱與姓名");
+                return;
+            }
+            const res = await callAPI({
+                action: "submitWish",
+                img,
+                product,
+                person
+            });
+            alert(res.message || "已提交");
+            closeWish();
+        }
+
+        /* ===================== RECORDS ======================= */
+        async function lookupRecords() {
+            const email = document.getElementById("recordsEmail").value.trim();
+            if (!email) {
+                alert("請輸入 Email");
+                return;
+            }
+            const res = await callAPI({
+                action: "getRecords",
+                email
+            });
+            const box = document.getElementById("recordsList");
+            box.innerHTML = res.records?.map(o => `
+    <div class="order-card">
+      <div><b>日期：</b>${o.date}</div>
+      <div class="meta">${o.items}</div>
+    </div>
+  `).join("") || "<p>查無紀錄</p>";
+        }
+
+        /* ===================== IMAGE PREVIEW ======================= */
+        function showImagePreview(src) {
+            const box = document.getElementById("imgPreview");
+            box.style.display = "flex";
+            box.querySelector("img").src = src;
+        }
+        document.getElementById("imgPreview").addEventListener("click", () => document.getElementById("imgPreview").style.display = "none");
+
+        /* ===================== EVENT BIND ======================= */
+        function bindEvents() {
+            document.getElementById("openCartBtn").onclick = () => {
+                renderCart();
+                openPanel("cartPanel");
+            };
+            document.getElementById("closeCart").onclick = () => closePanel("cartPanel");
+            document.getElementById("submitOrderBtn").onclick = submitOrder;
+            document.getElementById("openWishBtn").onclick = () => openPopup("wishPopup");
+            document.getElementById("closeWish").onclick = closeWish;
+            document.getElementById("submitWishBtn").onclick = submitWish;
+            document.getElementById("openRecordsBtn").onclick = () => openPanel("recordsPanel");
+            document.getElementById("closeRecords").onclick = () => closePanel("recordsPanel");
+            document.getElementById("lookupRecords").onclick = lookupRecords;
+        }
+
+        /* ===================== PANEL / POPUP ======================= */
+        function openPanel(id) {
+            document.getElementById(id).classList.add("open");
+            document.getElementById("overlay").classList.add("show");
+        }
+
+        function closePanel(id) {
+            document.getElementById(id).classList.remove("open");
+            document.getElementById("overlay").classList.remove("show");
+        }
+
+        function openPopup(id) {
+            document.getElementById(id).style.display = "block";
+            document.getElementById("overlay").classList.add("show");
+        }
+
+        function closeWish() {
+            document.getElementById("wishPopup").style.display = "none";
+            document.getElementById("overlay").classList.remove("show");
+        }
+    </script>
 </body>
+
 </html>
