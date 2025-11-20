@@ -218,6 +218,14 @@
   <!-- IFRAME（避免 CORS，用來接 GAS 回傳訊號） -->
   <iframe name="hidden_iframe" id="hidden_iframe" style="display:none"></iframe>
 
+  <!-- 許願用隱藏表單（POST 送到 GAS，避開 CORS） -->
+  <form id="wishForm" target="hidden_iframe" style="display:none;">
+    <input type="hidden" name="action" value="addWish">
+    <input type="hidden" name="name" id="wishNameField">
+    <input type="hidden" name="img" id="wishImgField">
+    <input type="hidden" name="person" id="wishPersonField">
+  </form>
+
   <!-- 圖片放大預覽 -->
   <div class="img-preview" id="imgPreview">
     <img src="" alt="預覽圖片">
@@ -229,300 +237,139 @@
        ============================= -->
   <script>
   /* =====================================================
-     CONFIG & GLOBAL STATE
+     CONFIG & GLOBAL STATE (GitHub / 靜態網站版)
+     - 讀資料：用 fetch(GAS_URL?action=...)
+     - 寫資料：用 form POST + hidden iframe，完全避開 CORS
   ===================================================== */
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbzPHf3HfEqTJKgoOmcnuXEJJO24my0sF-yyKwGa_ibmHnTuhgKaHgwZ7c7pFuV43CSl/exec";
-  // 在 Apps Script HtmlService / Html viewer 中，google.script.run 會存在
-  const HAS_GOOGLE_SCRIPT = (typeof google !== "undefined") && google.script && google.script.run;
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbx4x3QOGcG0h1mHZQGAlKkKfGVEQRP-FiS-sG1uN0D07O9Wj8xOzcstXTbthqE9qslI/exec";
 
-  // 從後端取得的完整商品清單
   let PRODUCTS = [];
-  // 目前套用搜尋 / 篩選後要顯示的商品
   let FILTERED_PRODUCTS = [];
-  // 購物車內容：[{code,name,price,qty,img,brand,category}]
   let CART = [];
-  // 許願清單（這裡只做前端顯示，真正寫入由 GAS addWish 負責）
   let WISHES = [];
-  // 篩選條件
   let selectedCategories = new Set();
   let searchKeyword = "";
 
-  /* =====================================================
-     INIT
-  ===================================================== */
-  document.addEventListener("DOMContentLoaded", init);
-
-  function init(){
-    console.log("[INIT] 小型團購網站啟動");
+  document.addEventListener("DOMContentLoaded", () => {
+    console.log("[INIT] Groupbuy GitHub + GAS WebApp (fetch + form POST)");
     bindBaseEvents();
     loadRules();
     loadProducts();
     restoreFromStorage();
 
-    // 綁定圖片預覽關閉事件
     const preview = document.getElementById("imgPreview");
-    if(preview){
+    if (preview) {
       preview.addEventListener("click", () => {
         preview.style.display = "none";
       });
     }
-  }
+  });
 
-  /* =====================================================
-     API HELPER（統一呼叫 GAS Web App）
-  ===================================================== */
-  async function callAPI(payload){
-    // 如果在 GAS Html 環境，優先使用 google.script.run 直連後端函式
-    if(HAS_GOOGLE_SCRIPT){
-      return new Promise((resolve, reject) => {
-        const runner = google.script.run.withFailureHandler(err => {
-          console.error("[API][GS] 後端錯誤", err);
-          reject(err);
-        });
-
-        if(payload.action === "submitOrder"){
-          runner.withSuccessHandler(() => {
-            resolve({ status:"ok", message:"訂單已建立，感謝您的訂購！" });
-          }).addOrder(payload.order);
-
-        }else if(payload.action === "addWish"){
-          runner.withSuccessHandler(() => {
-            resolve({ status:"ok", message:"已加入許願清單！" });
-          }).addWish(payload.wish);
-
-        }else if(payload.action === "getRecords"){
-          runner.withSuccessHandler(records => {
-            resolve({ status:"ok", records: records || [] });
-          }).getRecords(payload.email);
-
-        }else{
-          console.warn("[API][GS] 未支援的 action", payload.action);
-          reject(new Error("Unknown action: " + payload.action));
-        }
-      });
-    }
-
-    // 一般外部（例如 GitHub / 靜態網頁）使用 fetch 呼叫 Web App
-    console.log("[API] POST", GAS_URL, payload);
-    let res;
-    try{
-      res = await fetch(GAS_URL,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(payload)
-      });
-    }catch(networkErr){
-      console.error("[API] 網路錯誤，無法連線到 GAS", networkErr);
-      alert("目前無法連線到伺服器，請確認網路或 GAS Web App 是否可用。");
-      throw networkErr;
-    }
-
-    if(!res.ok){
-      console.error("[API] HTTP 錯誤", res.status, res.statusText);
-      alert("伺服器回應錯誤 (" + res.status + ")，請確認 GAS Web App 是否為最新部署，且 URL 正確。");
-      throw new Error("API 錯誤: " + res.status);
-    }
-
-    const text = await res.text();
-    try{
-      const json = JSON.parse(text);
-      console.log("[API] 回傳", json);
-      return json;
-    }catch(parseErr){
-      console.error("[API] 回傳不是合法 JSON，原始內容:", text);
-      alert("伺服器回傳的資料格式不正確，請確認 doPost 有使用 JSON.stringify 包成 JSON。");
-      throw parseErr;
-    }
-  }
-
-  async function loadRules(){
-    try{
-      // 在 Html Viewer / GAS 環境時，直接呼叫後端函式
-      if(HAS_GOOGLE_SCRIPT){
-        await new Promise((resolve, reject) => {
-          google.script.run
-            .withSuccessHandler(ruleText => {
-              document.getElementById("rules").textContent = ruleText || "";
-              resolve();
-            })
-            .withFailureHandler(err => {
-              console.error("[RULES][GS] 載入失敗", err);
-              reject(err);
-            })
-            .getRules();
-        });
-        return;
-      }
-
-      // 一般外部用 Web App doGet
-      const res = await fetch(GAS_URL + "?action=getRules");
-      if(!res.ok){
-        throw new Error("HTTP " + res.status + " " + res.statusText);
-      }
-      const text = await res.text();
-      let data;
-      try{
-        data = JSON.parse(text);
-      }catch(e){
-        console.error("[RULES] JSON 解析失敗，原始內容:", text);
-        throw e;
-      }
+  /* ================== LOAD RULES / PRODUCTS ================== */
+  async function loadRules() {
+    try {
+      const res = await fetch(`${GAS_URL}?action=getRules`);
+      if (!res.ok) throw new Error(res.status + " " + res.statusText);
+      const data = await res.json();
       document.getElementById("rules").textContent = data.rules || "";
-    }catch(err){
+    } catch (err) {
       console.error("[RULES] 載入失敗", err);
       document.getElementById("rules").textContent = "讀取規則失敗";
     }
   }
 
-  async function loadProducts(){
+  async function loadProducts() {
     const area = document.getElementById("productArea");
-    try{
-      // 在 Html Viewer / GAS 環境時，直接呼叫 getProducts
-      if(HAS_GOOGLE_SCRIPT){
-        await new Promise((resolve, reject) => {
-          google.script.run
-            .withSuccessHandler(data => {
-              PRODUCTS = Array.isArray(data) ? data : [];
-              FILTERED_PRODUCTS = PRODUCTS.slice();
-              console.log("[PRODUCTS][GS] 取得筆數:", PRODUCTS.length);
-              if(!PRODUCTS.length){
-                area.innerHTML = "<p style='padding:12px;'>目前沒有商品資料（請確認 GAS getProducts 是否有資料）。</p>";
-              }else{
-                buildCategoryFilter();
-                renderProducts();
-              }
-              resolve();
-            })
-            .withFailureHandler(err => {
-              console.error("[PRODUCTS][GS] 載入失敗", err);
-              reject(err);
-            })
-            .getProducts();
-        });
-        return;
-      }
-
-      // 一般外部用 Web App doGet
-      console.log("[PRODUCTS] 載入中...", GAS_URL + "?action=getProducts");
-      const res = await fetch(GAS_URL + "?action=getProducts");
-      if(!res.ok){
-        console.error("[PRODUCTS] HTTP 錯誤", res.status, res.statusText);
-        throw new Error("HTTP " + res.status + " " + res.statusText);
-      }
-      const text = await res.text();
-      let data;
-      try{
-        data = JSON.parse(text);
-      }catch(parseErr){
-        console.error("[PRODUCTS] JSON 解析失敗，原始內容:", text);
-        throw parseErr;
-      }
-
+    try {
+      console.log("[PRODUCTS] 讀取中...", GAS_URL);
+      const res = await fetch(`${GAS_URL}?action=getProducts`);
+      if (!res.ok) throw new Error(res.status + " " + res.statusText);
+      const data = await res.json();
       PRODUCTS = Array.isArray(data) ? data : (data.products || []);
       FILTERED_PRODUCTS = PRODUCTS.slice();
-      console.log("[PRODUCTS] 取得筆數:", PRODUCTS.length);
+      console.log("[PRODUCTS] 筆數:", PRODUCTS.length);
 
-      if(!PRODUCTS.length){
-        area.innerHTML = "<p style='padding:12px;'>目前沒有商品資料（請確認 GAS getProducts 是否有回傳陣列）。</p>";
+      if (!PRODUCTS.length) {
+        area.innerHTML = "<p style='padding:12px;'>目前沒有商品資料。</p>";
         return;
       }
-
       buildCategoryFilter();
       renderProducts();
-    }catch(err){
+    } catch (err) {
       console.error("[PRODUCTS] 載入失敗", err);
-      if(area){
-        area.innerHTML = "<p style='padding:12px;color:#c00;'>商品載入失敗，請稍後再試。<br>請確認 GAS Web App URL 正確，且 doGet(action=getProducts) 有回傳合法 JSON。</p>";
-      }
+      area.innerHTML = "<p style='padding:12px;color:#c00;'>商品載入失敗，請稍後再試。</p>";
     }
   }
 
-  /* =====================================================
-     EVENT 綁定（Topbar / 面板 / 搜尋 / 表單）
-  ===================================================== */
-  function bindBaseEvents(){
+  /* ================== EVENT BINDING ================== */
+  function bindBaseEvents() {
     const overlay = document.getElementById("overlay");
 
-    // 開啟 / 關閉購物車
     document.getElementById("openCartBtn").onclick = () => {
       renderCart();
       openPanel("cartPanel");
     };
     document.getElementById("closeCart").onclick = () => closePanel("cartPanel");
 
-    // 許願清單 panel
     document.getElementById("openWishBtn").onclick = () => openPanel("wishPanel");
     document.getElementById("closeWish").onclick = () => closePanel("wishPanel");
 
-    // 購物紀錄 panel
     document.getElementById("openRecordsBtn").onclick = () => openPanel("recordsPanel");
 
-    // 點擊遮罩關閉所有 panel
     overlay.onclick = closeAllPanels;
 
-    // 搜尋輸入框
     document.getElementById("searchBox").addEventListener("input", e => {
       searchKeyword = e.target.value.trim();
       applyFilters();
     });
 
-    // 分類多選 label 打開 / 關閉清單
     document.getElementById("categoryLabel").addEventListener("click", () => {
       const panel = document.getElementById("categoryPanel");
       panel.style.display = panel.style.display === "block" ? "none" : "block";
     });
 
-    // 商品區：事件委派（加入購物車、圖片放大）
     document.getElementById("productArea").addEventListener("click", e => {
-      if(e.target.matches("button[data-add]")){
+      if (e.target.matches("button[data-add]")) {
         const code = e.target.dataset.add;
         handleAddToCart(code);
         return;
       }
-      if(e.target.matches(".product img")){
+      if (e.target.matches(".product img")) {
         showImagePreview(e.target.src);
         return;
       }
     });
 
-    // 訂單表單 submit
     document.getElementById("orderForm").addEventListener("submit", e => {
       e.preventDefault();
       submitOrder();
     });
 
-    // 許願清單送出
     document.getElementById("submitWishBtn").onclick = submitWish;
-
-    // 購物紀錄查詢
     document.getElementById("lookupRecordsBtn").onclick = lookupRecords;
   }
 
-  /* =====================================================
-     PANEL 開關
-  ===================================================== */
-  function openPanel(id){
+  /* ================== PANEL CONTROL ================== */
+  function openPanel(id) {
     document.getElementById(id).classList.add("open");
     document.getElementById("overlay").classList.add("show");
   }
-  function closePanel(id){
+  function closePanel(id) {
     document.getElementById(id).classList.remove("open");
-    if(!document.querySelector(".panel.open")){
+    if (!document.querySelector(".panel.open")) {
       document.getElementById("overlay").classList.remove("show");
     }
   }
-  function closeAllPanels(){
+  function closeAllPanels() {
     document.querySelectorAll(".panel.open").forEach(p => p.classList.remove("open"));
     document.getElementById("overlay").classList.remove("show");
   }
 
-  /* =====================================================
-     分類篩選 + 搜尋
-  ===================================================== */
-  function buildCategoryFilter(){
+  /* ================== FILTER & PRODUCTS ================== */
+  function buildCategoryFilter() {
     const panel = document.getElementById("categoryPanel");
     const cats = [...new Set(PRODUCTS.map(p => p.category).filter(Boolean))].sort();
-    if(!cats.length){
+    if (!cats.length) {
       panel.innerHTML = "<div style='font-size:13px;color:var(--muted)'>目前沒有分類</div>";
       return;
     }
@@ -533,9 +380,9 @@
     `).join("");
 
     panel.addEventListener("change", e => {
-      if(e.target.matches("input[type='checkbox']")){
+      if (e.target.matches("input[type='checkbox']")) {
         const val = e.target.value;
-        if(e.target.checked) selectedCategories.add(val);
+        if (e.target.checked) selectedCategories.add(val);
         else selectedCategories.delete(val);
         updateSelectedCategoryLabel();
         applyFilters();
@@ -543,47 +390,38 @@
     });
   }
 
-  function updateSelectedCategoryLabel(){
+  function updateSelectedCategoryLabel() {
     const labelSpan = document.getElementById("selectedCount");
-    if(!selectedCategories.size){
-      labelSpan.textContent = "全部";
-    }else{
-      labelSpan.textContent = `已選 ${selectedCategories.size}`;
-    }
+    if (!selectedCategories.size) labelSpan.textContent = "全部";
+    else labelSpan.textContent = `已選 ${selectedCategories.size}`;
   }
 
-  function applyFilters(){
+  function applyFilters() {
     FILTERED_PRODUCTS = PRODUCTS.filter(p => {
-      // 分類
-      if(selectedCategories.size && !selectedCategories.has(p.category)) return false;
-      // 搜尋
-      if(searchKeyword){
+      if (selectedCategories.size && !selectedCategories.has(p.category)) return false;
+      if (searchKeyword) {
         const kw = searchKeyword.toLowerCase();
         const name = (p.name || "").toLowerCase();
         const brand = (p.brand || "").toLowerCase();
-        if(!name.includes(kw) && !brand.includes(kw)) return false;
+        if (!name.includes(kw) && !brand.includes(kw)) return false;
       }
       return true;
     });
     renderProducts();
   }
 
-  /* =====================================================
-     商品渲染
-  ===================================================== */
-  function renderProducts(){
+  function renderProducts() {
     const area = document.getElementById("productArea");
     area.innerHTML = "";
-    if(!FILTERED_PRODUCTS.length){
+    if (!FILTERED_PRODUCTS.length) {
       area.innerHTML = "<p style='padding:12px;'>目前沒有符合條件的商品。</p>";
       return;
     }
 
-    // 依分類群組
     const byCat = {};
     FILTERED_PRODUCTS.forEach(p => {
       const c = p.category || "未分類";
-      if(!byCat[c]) byCat[c] = [];
+      if (!byCat[c]) byCat[c] = [];
       byCat[c].push(p);
     });
 
@@ -603,18 +441,12 @@
           ? `<img src="${p.img}" alt="${p.name || "商品"}">`
           : `<div class="no-img">無圖片</div>`;
         row.innerHTML = `
-          <div>
-            ${imgCell}
-          </div>
+          <div>${imgCell}</div>
           <div>${p.name || "未命名商品"}</div>
           <div>${p.brand || "-"}</div>
           <div>$${formatMoney(p.price || 0)}</div>
-          <div>
-            <input type="number" min="1" value="1" class="qty-input" data-code="${p.code}">
-          </div>
-          <div style="text-align:center;">
-            <button class="btn-add" data-add="${p.code}">加入</button>
-          </div>
+          <div><input type="number" min="1" value="1" class="qty-input" data-code="${p.code}"></div>
+          <div style="text-align:center;"><button class="btn-add" data-add="${p.code}">加入</button></div>
         `;
         block.appendChild(row);
       });
@@ -623,19 +455,16 @@
     });
   }
 
-  /* =====================================================
-     購物車：新增 / 渲染 / 數量徽章
-  ===================================================== */
-  function handleAddToCart(code){
+  /* ================== CART ================== */
+  function handleAddToCart(code) {
     const product = PRODUCTS.find(p => p.code === code);
-    if(!product) return;
+    if (!product) return;
     const qtyInput = document.querySelector(`input.qty-input[data-code="${code}"]`);
     const qty = parseInt(qtyInput && qtyInput.value, 10) || 1;
 
     let item = CART.find(i => i.code === code);
-    if(item){
-      item.qty += qty;
-    }else{
+    if (item) item.qty += qty;
+    else {
       item = {
         code: product.code,
         name: product.name,
@@ -647,22 +476,21 @@
       };
       CART.push(item);
     }
-    console.log("[CART] 已加入", item);
+    console.log("[CART] 加入", item);
     updateCartCount();
     saveToStorage();
   }
 
-  function formatMoney(value){
+  function formatMoney(value) {
     const n = Number(value) || 0;
-    return n.toFixed(2); // 全站統一為小數點後兩位
+    return n.toFixed(2);
   }
 
-  function renderCart(){
-
+  function renderCart() {
     const box = document.getElementById("cartItemsContainer");
-    if(!box) return;
+    if (!box) return;
 
-    if(!CART.length){
+    if (!CART.length) {
       box.innerHTML = "<p>購物車是空的</p>";
       updateCartCount();
       return;
@@ -670,7 +498,7 @@
 
     let total = 0;
     box.innerHTML = CART.map(item => {
-      const sub = item.price * item.qty; // 原始數字，顯示時再用 formatMoney 處理
+      const sub = item.price * item.qty;
       total += sub;
       const imgCell = item.img
         ? `<img src="${item.img}" class="cart-img" style="width:50px;height:50px;object-fit:cover;border-radius:4px;">`
@@ -680,7 +508,7 @@
           ${imgCell}
           <div style="flex:1;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span style="font-weight:600;">${item.name}</span>
+              <span style="font-weight:600;">\${item.name}</span>
               <button type="button" class="btn-ghost btn-remove" style="border:none;color:red;background:none;">刪除</button>
             </div>
             <div style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:2px;">
@@ -695,7 +523,6 @@
       <div style="text-align:right;font-weight:700;margin-top:4px;">總計：$${formatMoney(total)}</div>
     `;
 
-    // 綁定刪除與數量變更
     box.querySelectorAll(".btn-remove").forEach(btn => {
       btn.onclick = () => {
         const code = btn.closest(".cart-item").dataset.code;
@@ -710,8 +537,8 @@
       input.onchange = () => {
         const code = input.closest(".cart-item").dataset.code;
         const item = CART.find(i => i.code === code);
-        if(!item) return;
-        const v = parseInt(input.value,10) || 1;
+        if (!item) return;
+        const v = parseInt(input.value, 10) || 1;
         item.qty = v;
         renderCart();
         updateCartCount();
@@ -719,101 +546,102 @@
       };
     });
 
-    // 點購物車內的圖片也可以放大預覽
     box.querySelectorAll(".cart-img").forEach(img => {
       img.onclick = () => showImagePreview(img.src);
     });
   }
 
-  function updateCartCount(){
-    const count = CART.reduce((s,i)=>s+i.qty,0);
+  function updateCartCount() {
+    const count = CART.reduce((s, i) => s + i.qty, 0);
     const el = document.getElementById("cartCount");
-    if(count>0){
+    if (count > 0) {
       el.style.display = "flex";
       el.textContent = count;
-    }else{
+    } else {
       el.style.display = "none";
     }
   }
 
-  function saveToStorage(){
-    try{
+  function saveToStorage() {
+    try {
       localStorage.setItem("groupbuy_cart", JSON.stringify(CART));
-    }catch(e){ console.warn("localStorage 寫入失敗", e); }
+    } catch (e) {
+      console.warn("localStorage 寫入失敗", e);
+    }
   }
 
-  function restoreFromStorage(){
-    try{
+  function restoreFromStorage() {
+    try {
       const raw = localStorage.getItem("groupbuy_cart");
-      if(raw){
+      if (raw) {
         CART = JSON.parse(raw) || [];
         updateCartCount();
       }
-    }catch(e){ console.warn("localStorage 讀取失敗", e); }
+    } catch (e) {
+      console.warn("localStorage 讀取失敗", e);
+    }
   }
 
-  /* =====================================================
-     訂單送出
-  ===================================================== */
-  async function submitOrder(){
-    if(!CART.length){
+  /* ================== ORDER SUBMIT (form + iframe) ================== */
+  function submitOrder() {
+    if (!CART.length) {
       alert("購物車是空的");
       return;
     }
     const name = document.getElementById("checkoutName").value.trim();
     const phone = document.getElementById("checkoutPhone").value.trim();
     const email = document.getElementById("checkoutEmail").value.trim();
-    if(!name || !phone || !email){
+    if (!name || !phone || !email) {
       alert("請完整填寫姓名、電話與 Email");
       return;
     }
-    const payload = {
-      action:"submitOrder",
-      order:{ name, phone, email, cart: CART }
-    };
-    try{
-      const res = await callAPI(payload);
-      alert(res.message || "訂單已送出，感謝您的訂購！");
-      CART = [];
-      saveToStorage();
-      renderCart();
-      updateCartCount();
-      closePanel("cartPanel");
-    }catch(err){
-      console.error("[ORDER] 送出失敗", err);
-      alert("訂單送出失敗，請稍後再試");
-    }
+
+    const form = document.getElementById("orderForm");
+    document.getElementById("cartInput").value = JSON.stringify(CART);
+
+    form.action = GAS_URL;
+    form.method = "POST";
+    form.submit();
+
+    alert("訂單已送出，感謝您的訂購！");
+    CART = [];
+    saveToStorage();
+    renderCart();
+    updateCartCount();
+    closePanel("cartPanel");
   }
 
-  /* =====================================================
-     許願清單
-  ===================================================== */
-  async function submitWish(){
+  /* ================== WISH (form + iframe) ================== */
+  function submitWish() {
     const img = document.getElementById("wishImg").value.trim();
     const name = document.getElementById("wishName").value.trim();
     const person = document.getElementById("wishPerson").value.trim();
-    if(!name || !person){
+    if (!name || !person) {
       alert("請填寫產品名稱與許願人姓名");
       return;
     }
-    const wish = { img, name, person };
-    try{
-      const res = await callAPI({ action:"addWish", wish });
-      alert(res.message || "已送出許願 🙌");
-      WISHES.push(wish);
-      renderWishes();
-      document.getElementById("wishImg").value = "";
-      document.getElementById("wishName").value = "";
-      document.getElementById("wishPerson").value = "";
-    }catch(err){
-      console.error("[WISH] 送出失敗", err);
-      alert("許願送出失敗，請稍後再試");
-    }
+
+    document.getElementById("wishNameField").value = name;
+    document.getElementById("wishImgField").value = img;
+    document.getElementById("wishPersonField").value = person;
+
+    const form = document.getElementById("wishForm");
+    form.action = GAS_URL;
+    form.method = "POST";
+    form.submit();
+
+    alert("許願已送出 🙌");
+    WISHES.push({ img, name, person });
+    renderWishes();
+
+    document.getElementById("wishImg").value = "";
+    document.getElementById("wishName").value = "";
+    document.getElementById("wishPerson").value = "";
   }
 
-  function renderWishes(){
+  function renderWishes() {
     const box = document.getElementById("wishList");
-    if(!WISHES.length){
+    if (!WISHES.length) {
       box.innerHTML = "<p>目前沒有許願紀錄（本區只顯示本次瀏覽期間送出的許願）。</p>";
       return;
     }
@@ -825,35 +653,36 @@
     `).join("");
   }
 
-  function showImagePreview(src){
+  /* ================== IMAGE PREVIEW ================== */
+  function showImagePreview(src) {
     const box = document.getElementById("imgPreview");
-    if(!box) return;
-    const img = box.querySelector("img");
-    img.src = src;
+    if (!box) return;
+    box.querySelector("img").src = src;
     box.style.display = "flex";
   }
 
-  /* =====================================================
-     購物紀錄查詢
-  ===================================================== */
-  async function lookupRecords(){
+  /* ================== RECORDS (fetch JSON) ================== */
+  async function lookupRecords() {
     const email = document.getElementById("recordsEmail").value.trim();
-    if(!email){
+    if (!email) {
       alert("請先輸入 Email");
       return;
     }
-    try{
-      const res = await callAPI({ action:"getRecords", email });
-      renderRecords(res.records || []);
-    }catch(err){
+    try {
+      const res = await fetch(`${GAS_URL}?action=getRecords&email=${encodeURIComponent(email)}`);
+      if (!res.ok) throw new Error(res.status + " " + res.statusText);
+      const data = await res.json();
+      const records = data.records || data || [];
+      renderRecords(records);
+    } catch (err) {
       console.error("[RECORDS] 查詢失敗", err);
       alert("查詢失敗，請稍後再試");
     }
   }
 
-  function renderRecords(list){
+  function renderRecords(list) {
     const box = document.getElementById("recordsList");
-    if(!list.length){
+    if (!list.length) {
       box.innerHTML = "<p>查無紀錄</p>";
       return;
     }
@@ -864,7 +693,6 @@
       </div>
     `).join("");
   }
-
   </script>
 </body>
 </html>
