@@ -241,7 +241,7 @@
      - 讀資料：用 fetch(GAS_URL?action=...)
      - 寫資料：用 form POST + hidden iframe，完全避開 CORS
   ===================================================== */
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbzTzY8brhmT1LAyuWIwv3iVRm8kpPpqcxCOiSbi3MXMo_DnP3tpjTynYixIMvvKK5wy/exec";
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbx4x3QOGcG0h1mHZQGAlKkKfGVEQRP-FiS-sG1uN0D07O9Wj8xOzcstXTbthqE9qslI/exec";
 
   let PRODUCTS = [];
   let FILTERED_PRODUCTS = [];
@@ -508,7 +508,7 @@
           ${imgCell}
           <div style="flex:1;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span style="font-weight:600;">\${item.name}</span>
+              <span style="font-weight:600;">${item.name}</span>
               <button type="button" class="btn-ghost btn-remove" style="border:none;color:red;background:none;">刪除</button>
             </div>
             <div style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:2px;">
